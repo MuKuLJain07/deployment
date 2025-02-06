@@ -1,0 +1,112 @@
+properties([
+    parameters([
+        choice(
+            choices: ['BRANCH','IMAGE'],
+            description: 'You want to deploy through branch or image.',
+            name: 'DEPLOYTHROUGH'
+        ),
+        string(
+            name: 'DOCKERIMAGE',
+            defaultValue: '',
+            description: 'Enter docker image tag, use only when selected DEPLOYTHROUGH = IMAGE'
+        ),
+        choice(
+            choices: ['Spell-Checker-using-Django'],
+            description: 'Choose service name.',
+            name: 'SERVICE'
+        ),
+        gitParameter(
+            branch: '',
+            branchFilter: '*',
+            defaultValue: 'origin/dev',
+            description: 'Choose the tag which need to deploy.',
+            name: 'BRANCH',
+            quickFilterEnabled: true,
+            selectedValue: 'DEFAULT',
+            sortMode: 'DESCENDING_SMART',
+            tagFilter: '1*',
+            useRepository: 'https://github.com/MuKuLJain07/Spell-Checker-using-Django.git',
+            type: 'GitParameterDefinition'
+        ),
+    ])
+])
+
+def COLOR_MAP = [
+    'SUCCESS': 'good', 
+    'FAILURE': 'danger',
+]
+
+pipeline {
+    agent {
+        label 'dev'
+    }
+    options {
+        disableConcurrentBuilds()
+    }
+    environment {
+       PATH = "/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+    }
+    stages {
+        stage("Set Build Name"){
+            steps {
+                script {
+                    currentBuild.displayName = "$SERVICE-$BUILD_NUMBER"
+                    currentBuild.description = "$SERVICE-$BUILD_NUMBER"
+                }
+            }
+        }
+        stage ('Git Checkout'){
+            steps{
+                dir('Spell-Checker-using-Django'){
+                    deleteDir()
+                    checkout([$class: 'GitSCM',
+                    branches: [[name: '$BRANCH']],
+                    userRemoteConfigs: [[
+                        credentialsId: 'dotpe-devops',
+                        url: 'https://github.com/MuKuLJain07/Spell-Checker-using-Django.git'
+                        ]]
+                    ])
+                }
+            }
+        }
+        stage ('Devops Clone'){
+            steps{
+                dir('devops'){
+                    git branch: 'main', credentialsId: 'dotpe-devops', url: 'https://github.com/MuKuLJain07/deployment.git'
+                }
+            }
+        }
+        stage('Code Combine'){
+            when {
+                expression {
+                    params.DEPLOYTHROUGH == 'BRANCH'
+                }
+            }
+            steps{
+                sh'''
+                    cd ~/services/$SERVICE
+                    cp -r $WORKSPACE/Spell-Checker-using-Django ~/services/$SERVICE/
+                    cp -r $WORKSPACE/devops ~/services/$SERVICE/
+                    rm -rf ~/Spell-Checker-using-Django
+                '''
+            }
+        }
+        stage ('Docker Build'){
+            when {
+                expression {
+                    params.DEPLOYTHROUGH == 'BRANCH'
+                }
+            }
+            steps{
+                sh'''
+                    cd $WORKSPACE/
+                    IMAGETAG=$SERVICE-$BUILD_NUMBER
+                    cp -r ~/services/$SERVICE/devops/Spell-Checker-using-Django/Dockerfile  ~/services/$SERVICE/Spell-Checker-using-Django
+
+                    cd ~/services/$SERVICE/
+                    docker build . -t spell-checker:$IMAGETAG
+                '''
+            }
+        }
+    }
+}
