@@ -38,7 +38,7 @@ def COLOR_MAP = [
 
 pipeline {
     agent {
-        label 'dev'
+        label 'master'
     }
     options {
         disableConcurrentBuilds()
