@@ -18,7 +18,7 @@ properties([
         gitParameter(
             branch: '',
             branchFilter: '*',
-            defaultValue: 'origin/master',
+            defaultValue: 'origin/main',
             description: 'Choose the tag which need to deploy.',
             name: 'BRANCH',
             quickFilterEnabled: true,
