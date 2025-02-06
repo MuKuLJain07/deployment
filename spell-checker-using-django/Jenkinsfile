@@ -1,7 +1,7 @@
 properties([
     parameters([
         choice(
-            choices: ['BRANCH', 'IMAGE'],
+            choices: ['BRANCH','IMAGE'],
             description: 'You want to deploy through branch or image.',
             name: 'DEPLOYTHROUGH'
         ),
@@ -25,7 +25,6 @@ properties([
             selectedValue: 'DEFAULT',
             sortMode: 'DESCENDING_SMART',
             tagFilter: '1*',
-            credentialsId: 'spell-checker-dev',
             useRepository: 'https://github.com/MuKuLJain07/Spell-Checker-using-Django.git',
             type: 'GitParameterDefinition'
         ),
@@ -33,7 +32,7 @@ properties([
 ])
 
 def COLOR_MAP = [
-    'SUCCESS': 'good',
+    'SUCCESS': 'good', 
     'FAILURE': 'danger',
 ]
 
@@ -41,145 +40,73 @@ pipeline {
     agent {
         label 'built-in'
     }
-    
     options {
         disableConcurrentBuilds()
-        timeout(time: 1, unit: 'HOURS')
-        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
-    
     environment {
-        PATH = "/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
-        SERVICE_NAME = "${params.SERVICE}"
-        BRANCH_NAME = "${params.BRANCH}"
+       PATH = "/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
     }
-    
     stages {
-        stage('Verify Credentials') {
+        stage("Set Build Name"){
             steps {
                 script {
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'spell-checker-dev', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
-                            sh 'echo "Credentials verified successfully"'
-                        }
-                    } catch (Exception e) {
-                        error "Failed to verify credentials: ${e.getMessage()}"
-                    }
+                    currentBuild.displayName = "$SERVICE-$BUILD_NUMBER"
+                    currentBuild.description = "$SERVICE-$BUILD_NUMBER"
                 }
             }
         }
-        
-        stage("Set Build Name") {
-            steps {
-                script {
-                    currentBuild.displayName = "${env.SERVICE_NAME}-${BUILD_NUMBER}"
-                    currentBuild.description = "${env.SERVICE_NAME}-${BUILD_NUMBER}"
-                }
-            }
-        }
-        
-        stage('Git Checkout') {
-            steps {
-                dir('Spell-Checker-using-Django') {
+        stage ('Git Checkout'){
+            steps{
+                dir('Spell-Checker-using-Django'){
                     deleteDir()
-                    script {
-                        try {
-                            checkout([$class: 'GitSCM',
-                                branches: [[name: "${env.BRANCH_NAME}"]],
-                                userRemoteConfigs: [[
-                                    credentialsId: 'spell-checker-dev',
-                                    url: 'https://github.com/MuKuLJain07/Spell-Checker-using-Django.git'
-                                ]],
-                                extensions: [[$class: 'CloneOption', 
-                                    depth: 1, 
-                                    noTags: false, 
-                                    reference: '', 
-                                    shallow: true]]
-                            ])
-                        } catch (Exception e) {
-                            error "Failed to checkout repository: ${e.getMessage()}"
-                        }
-                    }
+                    checkout([$class: 'GitSCM',
+                    branches: [[name: '$BRANCH']],
+                    userRemoteConfigs: [[
+                        credentialsId: 'spell-checker-dev',
+                        url: 'git@github.com:MuKuLJain07/Spell-Checker-using-Django.git'
+                        ]]
+                    ])
                 }
             }
         }
-        
-        stage('Devops Clone') {
-            steps {
-                dir('devops') {
-                    script {
-                        try {
-                            checkout([$class: 'GitSCM',
-                                branches: [[name: 'main']],
-                                userRemoteConfigs: [[
-                                    credentialsId: 'spell-checker-dev',
-                                    url: 'https://github.com/MuKuLJain07/deployment.git'
-                                ]],
-                                extensions: [[$class: 'CloneOption', 
-                                    depth: 1, 
-                                    noTags: false, 
-                                    reference: '', 
-                                    shallow: true]]
-                            ])
-                        } catch (Exception e) {
-                            error "Failed to checkout devops repository: ${e.getMessage()}"
-                        }
-                    }
+        stage ('Devops Clone'){
+            steps{
+                dir('devops'){
+                    git branch: 'main', credentialsId: 'dotpe-devops', url: 'https://github.com/MuKuLJain07/deployment.git'
                 }
             }
         }
-        
-        stage('Code Combine') {
+        stage('Code Combine'){
             when {
-                expression { params.DEPLOYTHROUGH == 'BRANCH' }
-            }
-            steps {
-                script {
-                    try {
-                        sh """
-                            cd ~/services/${env.SERVICE_NAME}
-                            cp -r ${WORKSPACE}/Spell-Checker-using-Django ~/services/${env.SERVICE_NAME}/
-                            cp -r ${WORKSPACE}/devops ~/services/${env.SERVICE_NAME}/
-                            rm -rf ~/Spell-Checker-using-Django
-                        """
-                    } catch (Exception e) {
-                        error "Failed to combine code: ${e.getMessage()}"
-                    }
+                expression {
+                    params.DEPLOYTHROUGH == 'BRANCH'
                 }
             }
+            steps{
+                sh'''
+                    cd ~/services/$SERVICE
+                    cp -r $WORKSPACE/Spell-Checker-using-Django ~/services/$SERVICE/
+                    cp -r $WORKSPACE/devops ~/services/$SERVICE/
+                    rm -rf ~/Spell-Checker-using-Django
+                '''
+            }
         }
-        
-        stage('Docker Build') {
+        stage ('Docker Build'){
             when {
-                expression { params.DEPLOYTHROUGH == 'BRANCH' }
-            }
-            steps {
-                script {
-                    try {
-                        def imageTag = "${env.SERVICE_NAME}-${BUILD_NUMBER}"
-                        sh """
-                            cd ${WORKSPACE}/
-                            cp -r ~/services/${env.SERVICE_NAME}/devops/Spell-Checker-using-Django/Dockerfile ~/services/${env.SERVICE_NAME}/Spell-Checker-using-Django
-                            cd ~/services/${env.SERVICE_NAME}/
-                            docker build . -t spell-checker:${imageTag}
-                        """
-                    } catch (Exception e) {
-                        error "Failed to build Docker image: ${e.getMessage()}"
-                    }
+                expression {
+                    params.DEPLOYTHROUGH == 'BRANCH'
                 }
             }
-        }
-    }
-    
-    post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
-        always {
-            cleanWs()
+            steps{
+                sh'''
+                    cd $WORKSPACE/
+                    IMAGETAG=$SERVICE-$BUILD_NUMBER
+                    cp -r ~/services/$SERVICE/devops/Spell-Checker-using-Django/Dockerfile  ~/services/$SERVICE/Spell-Checker-using-Django
+
+                    cd ~/services/$SERVICE/
+                    docker build . -t spell-checker:$IMAGETAG
+                '''
+            }
         }
     }
 }
