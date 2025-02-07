@@ -89,10 +89,10 @@ pipeline {
             }
             steps{
                 sh'''
-                    cd ~/services/$SERVICE
-                    cp -r $WORKSPACE/Spell-Checker-using-Django ~/services/$SERVICE/
-                    cp -r $WORKSPACE/devops ~/services/$SERVICE/
-                    rm -rf ~/Spell-Checker-using-Django
+                    cd $WORKSPACE/services/$SERVICE
+                    cp -r $WORKSPACE/Spell-Checker-using-Django $WORKSPACE/services/$SERVICE/
+                    cp -r $WORKSPACE/devops $WORKSPACE/services/$SERVICE/
+                    rm -rf $WORKSPACE/Spell-Checker-using-Django
                 '''
             }
         }
@@ -106,10 +106,12 @@ pipeline {
                 sh'''
                     cd $WORKSPACE/
                     IMAGETAG=$SERVICE-$BUILD_NUMBER
-                    cp -r ~/services/$SERVICE/devops/Spell-Checker-using-Django/Dockerfile  ~/services/$SERVICE/Spell-Checker-using-Django
+                    cp -r $WORKSPACE/services/$SERVICE/devops/Spell-Checker-using-Django/Dockerfile  $WORKSPACE/services/$SERVICE/Spell-Checker-using-Django
 
-                    cd ~/services/$SERVICE/
+                    cd $WORKSPACE/services/$SERVICE/
                     docker build . -t spell-checker:$IMAGETAG
+
+                    docker run spell-checker:$IMAGETAG
                 '''
             }
         }
