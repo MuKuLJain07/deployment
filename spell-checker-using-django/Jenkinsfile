@@ -55,6 +55,11 @@ pipeline {
                 }
             }
         }
+        stage('Check Git Version') {
+            steps {
+                sh 'git --version'
+            }
+        }
         stage ('Git Checkout'){
             steps{
                 dir('Spell-Checker-using-Django'){
