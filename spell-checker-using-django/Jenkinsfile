@@ -25,7 +25,7 @@ properties([
             selectedValue: 'DEFAULT',
             sortMode: 'DESCENDING_SMART',
             tagFilter: '1*',
-            useRepository: 'https://github.com/MuKuLJain07/Spell-Checker-using-Django.git',
+            useRepository: 'git@github.com:MuKuLJain07/Spell-Checker-using-Django.git',
             type: 'GitParameterDefinition'
         ),
     ])
