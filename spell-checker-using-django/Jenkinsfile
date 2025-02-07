@@ -72,7 +72,7 @@ pipeline {
         stage ('Devops Clone'){
             steps{
                 dir('devops'){
-                    git branch: 'main', credentialsId: 'dotpe-devops', url: 'https://github.com/MuKuLJain07/deployment.git'
+                    git branch: 'main', credentialsId: 'spell-checker-dev', url: 'git@github.com:MuKuLJain07/deployment.git'
                 }
             }
         }
